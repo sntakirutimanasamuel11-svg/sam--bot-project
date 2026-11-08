@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sam Bot</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#f1f3f4}
+.header{height:60px;background:#202c33;color:white;display:flex;align-items:center;padding:0 15px;gap:12px}
+#menu{display:none}
+.menu{font-size:28px;cursor:pointer}
+.avatar{font-size:25px}
+.title{font-weight:bold}
+.sidebar{position:fixed;top:0;left:-280px;width:280px;height:100%;background:white;z-index:10;transition:.3s;box-shadow:2px 0 10px #555}
+#menu:checked~.sidebar{left:0}
+.sidehead{background:#202c33;color:white;padding:25px;font-size:20px}
+.item{display:block;width:100%;padding:18px;border:0;background:white;text-align:left;font-size:16px}
+.item:hover{background:#eee}
+.overlay{display:none;position:fixed;inset:0;background:#0008;z-index:9}
+#menu:checked~.overlay{display:block}
+.container{max-width:850px;margin:auto;background:white;min-height:calc(100vh - 60px);padding:15px}
+.message{display:flex;margin:10px 0}
+.you{justify-content:flex-end}
+.bot{justify-content:flex-start}
+.bubble{max-width:85%;padding:12px;border-radius:14px}
+.you .bubble{background:#d9fdd3}
+.bot .bubble{background:#eee}
+.sender{font-size:12px;font-weight:bold;margin-bottom:5px}
+.bot-text{line-height:1.5}
+.speak{border:0;background:transparent;font-size:20px;cursor:pointer;margin-left:7px}
+.form{display:flex;gap:6px;margin-top:20px}
+.form input{flex:1}
+input{padding:12px;border:1px solid #ccc;border-radius:8px;font-size:15px}
+button{cursor:pointer;border-radius:8px}
+.send{background:#128c7e;color:white;border:0;padding:12px 18px}
+.voice{background:#555;color:white;border:0;padding:12px 15px;font-size:18px}
+.listening{background:#d32f2f}
+.card{background:#f5f5f5;padding:15px;border-radius:10px;margin-bottom:15px}
+.knowledge{background:white;border:1px solid #ddd;padding:12px;margin:10px 0;border-radius:8px}
+.delete{background:#ffcccc;border:0;padding:8px}
+.edit{background:#fff3cd;border:0;padding:8px}
+</style>
+</head>
+
+<body>
+
+<input type="checkbox" id="menu">
+
+<div class="header">
+<label for="menu" class="menu">☰</label>
+<div class="avatar">🤖</div>
+<div class="title">Sam Bot<br><small>🟢 Online</small></div>
+</div>
+
+<div class="sidebar">
+<div class="sidehead"> Sam Bot</div>
+<a href="/" style="text-decoration:none">
+<button class="item"> Chat</button>
+</a>
+<div class="item"> Search</div>
+<div class="item"> Profile</div>
+<div class="item"> Settings</div>
+</div>
+
+<label for="menu" class="overlay"></label>
+
+<div class="container">
+
+<div class="card">
+<h2>🤖 Sam Bot</h2>
+<p>Welcome to Sam Bot!</p>
+</div>
+
+{% for item in messages %}
+
+<div class="message {% if item[0]=='You' %}you{% else %}bot{% endif %}">
+<div class="bubble">
+
+<div class="sender">
+{% if item[0]=='You' %}
+👤 You
+{% else %}
+🤖 Sam Bot
+{% endif %}
+</div>
+
+{% if item[0]=='You' %}
+{{ item[1] }}
+{% else %}
+<span class="bot-text">{{ item[1] }}</span>
+<button class="speak" type="button" onclick="speak(this)">🔊</button>
+{% endif %}
+
+</div>
+</div>
+
+{% endfor %}
+
+{% if reply=="I don't know yet. Please teach me." %}
+
+<div class="card">
+<h3>🧠 Teach Sam Bot</h3>
+
+<form method="POST" action="/teach">
+
+<input type="hidden"
+name="question"
+value="{{ question }}">
+
+<input type="text"
+name="answer"
+placeholder="Type the correct answer"
+required>
+
+<br><br>
+
+<button class="send" type="submit">
+🧠 Teach Bot
+</button>
+
+</form>
+</div>
+
+{% endif %}
+
+<form method="POST" action="/" class="form">
+
+<input
+type="text"
+name="message"
+id="message"
+placeholder="Type or speak..."
+required>
+
+<button
+type="button"
+id="voice"
+class="voice">
+🎤
+</button>
+
+<button
+type="submit"
+class="send">
+Send
+</button>
+
+</form>
+
+<div class="card">
+
+<h2>🧠 Knowledge</h2>
+
+{% for question,answer in knowledge %}
+
+<div class="knowledge">
+
+<p><b>Question:</b> {{ question }}</p>
+<p><b>Answer:</b> {{ answer }}</p>
+
+<details>
+<summary>✏️ Edit</summary>
+
+<br>
+
+<form method="POST" action="/edit-knowledge">
+
+<input type="hidden"
+name="question"
+value="{{ question }}">
+
+<input type="text"
+name="answer"
+value="{{ answer }}"
+required>
+
+<br><br>
+
+<button class="edit" type="submit">
+💾 Save
+</button>
+
+</form>
+
+</details>
+
+<br>
+
+<form method="POST" action="/delete-knowledge">
+
+<input type="hidden"
+name="question"
+value="{{ question }}">
+
+<button class="delete" type="submit">
+🗑️ Delete
+</button>
+
+</form>
+
+</div>
+
+{% else %}
+
+<p>No knowledge yet.</p>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+<script>
+
+const voice=document.getElementById("voice");
+const message=document.getElementById("message");
+
+const Recognition=
+window.SpeechRecognition||
+window.webkitSpeechRecognition;
+
+if(Recognition){
+
+const recognition=new Recognition();
+
+recognition.lang="en-US";
+recognition.continuous=false;
+recognition.interimResults=false;
+
+voice.onclick=()=>{
+
+try{
+recognition.start();
+voice.innerHTML="🔴";
+voice.classList.add("listening");
+}catch(e){}
+
+};
+
+recognition.onresult=e=>{
+
+message.value=
+e.results[0][0].transcript;
+
+};
+
+recognition.onend=()=>{
+
+voice.innerHTML="🎤";
+voice.classList.remove("listening");
+
+};
+
+recognition.onerror=()=>{
+
+voice.innerHTML="🎤";
+voice.classList.remove("listening");
+
+};
+
+}else{
+
+voice.onclick=()=>alert(
+"Voice input is not supported by this browser."
+);
+
+}
+
+
+function speak(button){
+
+const text=
+button.parentElement
+.querySelector(".bot-text")
+.innerText;
+
+if(!text)return;
+
+if(!window.speechSynthesis){
+
+alert(
+"Voice reply is not supported."
+);
+
+return;
+
+}
+
+speechSynthesis.cancel();
+
+const speech=
+new SpeechSynthesisUtterance(text);
+
+speech.lang="en-US";
+speech.rate=.9;
+speech.pitch=1;
+speech.volume=1;
+
+speechSynthesis.speak(speech);
+
+}
+
+</script>
+
+</body>
+</html>
